@@ -1073,7 +1073,7 @@
 
 #  define STM32_NBTIM                    1   /* (1) Basic timers: TIM6 (no TIM7) */
 #  define STM32_NDMA                     1   /* (1) DMA1 (7 channels) */
-#  define STM32_NSPI                     2   /* (3) SPI1-3 */
+#  define STM32_NSPI                     3   /* (3) SPI1-3 */
 #  define STM32_NI2S                     0   /* (0) No I2S */
 #  define STM32_NUSART                   2   /* (2) USART1-2, no UARTs */
 #  define STM32_NI2C                     3   /* (3) I2C1-3 */
