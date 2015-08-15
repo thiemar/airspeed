@@ -50,9 +50,10 @@
 #define CONFIG_ARCH_CORTEXM4
 #define CONFIG_ARCH_FPU
 #define CONFIG_ARCH_CHIP_STM32F302K8
-#define CONFIG_USEC_PER_TICK 10000
+#define CONFIG_USEC_PER_TICK 1000
 #define CONFIG_IDLETHREAD_STACKSIZE 4096
 #define CONFIG_STM32_NOEXT_VECTORS
+#define STM32F30X
 
 
 /************************************************************************************
@@ -139,9 +140,6 @@
 
 #define STM32_CFGR_USBPRE       0
 
-#define GPIO_USART1_RX         GPIO_USART1_RX_1 /* PA10 */
-#define GPIO_USART1_TX         GPIO_USART1_TX_1 /* PA9 */
-
 /* Probes unused */
 #define PROBE_INIT(mask)
 #define PROBE(n,s)
@@ -173,7 +171,7 @@
 #define OPT_APPLICATION_IMAGE_OFFSET OPT_BOOTLOADER_SIZE_IN_K
 #define OPT_APPLICATION_IMAGE_LENGTH (FLASH_SIZE-(OPT_BOOTLOADER_SIZE_IN_K+OPT_APPLICATION_RESERVER_IN_K))
 
-#define HW_UAVCAN_NAME "com.thiemar.s2740vc-v1"
+#define HW_UAVCAN_NAME "com.thiemar.p7000d-v1"
 #define HW_VERSION_MAJOR 1
 #define HW_VERSION_MINOR 0
 
@@ -196,17 +194,24 @@
 
 /* CAN ***************************************************************************
  *
- *   GPIO      Function                                     MPU        Board
- *                                                          Pin #      Name
- * -- ----- --------------------------------             ----------------------------
+ *   GPIO      Function                             MPU        Board
+ *                                                  Pin #      Name
+ * --------- --------------------------------     ----------------------------
  *
- *  PA[11] PA11/CAN_RX                              21       CAN_RX
- *  PA[12] PA12/CAN_TX                                      22       CAN_TX
- *  PB[6]  PB06                                         29       nCAN_SILENT
+ *   PA[11]    PA11/CAN_RX                          21         CAN_RX
+ *   PA[12]    PA12/CAN_TX                          22         CAN_TX
+ *   PB[6]     PB06                                 29         CAN_SILENT
+ *   PB[7]     PB07                                 30         SENSON
  */
 
 #define GPIO_CAN_SILENT (GPIO_OUTPUT | GPIO_PUSHPULL | \
-             GPIO_PORTB | GPIO_PIN6 | GPIO_OUTPUT_CLEAR)
+                         GPIO_PORTB | GPIO_PIN6 | GPIO_OUTPUT_CLEAR)
+
+#define GPIO_SENSON (GPIO_OUTPUT | GPIO_PUSHPULL | \
+                     GPIO_PORTB | GPIO_PIN7 | GPIO_OUTPUT_SET)
+
+#define GPIO_NSS (GPIO_OUTPUT | GPIO_PUSHPULL | \
+                  GPIO_PORTA | GPIO_PIN15 | GPIO_OUTPUT_SET)
 
 
 /************************************************************************************
@@ -265,8 +270,6 @@ inline static void board_initialize(void)
 
 inline static void board_deinitialize(void)
 {
-    putreg32(getreg32(STM32_RCC_APB1RSTR) | RCC_APB1RSTR_CAN1RST,
-         STM32_RCC_APB1RSTR);
 }
 
 /****************************************************************************

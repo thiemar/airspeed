@@ -60,18 +60,6 @@ void _exit(int status);
  * Public Functions
  ****************************************************************************/
 
-void
-__attribute__((noreturn))
-__assert_func (
-    const char __attribute__((unused)) *file,
-    int __attribute__((unused))  line,
-    const char __attribute__((unused))  *func,
-    const char __attribute__((unused))  *failedexpr)
-{
-  _exit(0);
-  /* NOTREACHED */
-}
-
 /****************************************************************************
  * Name: _exit
  *

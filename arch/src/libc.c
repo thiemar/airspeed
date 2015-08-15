@@ -41,8 +41,15 @@
 #include <sys/types.h>
 
 #include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+
+/****************************************************************************
+ * Private Functions
+ ****************************************************************************/
+
+void _exit(int status);
 
 /****************************************************************************
  * Pre-processor Definitions
@@ -51,6 +58,23 @@
 /****************************************************************************
  * Global Functions
  ****************************************************************************/
+
+void
+__attribute__((noreturn))
+__assert_func (
+    const char __attribute__((unused)) *file,
+    int __attribute__((unused))  line,
+    const char __attribute__((unused))  *func,
+    const char __attribute__((unused))  *failedexpr)
+{
+  _exit(0);
+  /* NOTREACHED */
+}
+
+void abort(void)
+{
+  _exit(0);
+}
 
 void *memcpy(void *dest, const void *src, size_t n)
 {
@@ -137,4 +161,18 @@ void *memset(void *s, int c, size_t n)
   while (n-- > 0) *p++ = c;
 #endif
   return s;
+}
+
+int strncmp(const char *cs, const char *ct, size_t nb)
+{
+  int result = 0;
+  for (; nb > 0; nb--)
+    {
+      if ((result = (int)*cs - (int)*ct++) != 0 || !*cs++)
+        {
+          break;
+        }
+    }
+
+  return result;
 }

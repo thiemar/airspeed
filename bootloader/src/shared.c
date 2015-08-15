@@ -110,12 +110,18 @@ inline static void read(bootloader_app_shared_t *pshared)
 
 inline static void write(bootloader_app_shared_t *pshared)
 {
+	/* Enter filter init mode and disable all filters */
+	putreg32(CAN_FMR_FINIT, STM32_CAN1_FMR);
+	putreg32(0, STM32_CAN1_FA1R);
+
 	putreg32(pshared->signature, signature_LOC);
 	putreg32(pshared->bus_speed, bus_speed_LOC);
 	putreg32(pshared->node_id, node_id_LOC);
 	putreg32(pshared->crc.ul[CRC_L], crc_LoLOC);
 	putreg32(pshared->crc.ul[CRC_H], crc_HiLOC);
 
+	/* Leave filter init mode */
+	putreg32(0, STM32_CAN1_FMR);
 }
 
 /****************************************************************************

@@ -358,6 +358,46 @@ static inline time_hrt_cycles_t timer_hrt_read(void)
 }
 
 /****************************************************************************
+ * Name: timer_hrt_clear_wrap
+ *
+ * Description:
+ *   Clears the wrap flag by reading the timer
+ *
+ *
+ * Input Parameters:
+ *   None
+ *
+ * Returned Value:
+ *   None
+ *
+ ****************************************************************************/
+
+static inline void timer_hrt_clear_wrap(void)
+{
+        (void)timer_hrt_read();
+}
+/****************************************************************************
+ * Name: timer_hrt_wrap
+ *
+ * Description:
+ *   Returns true if SysTic  counted to 0 since last time it was
+ *   read.
+ *
+ * Input Parameters:
+ *   None
+ *
+ * Returned Value:
+ *   Returns true  if timer counted to 0 since last time this was read.
+ *
+ ****************************************************************************/
+
+static inline bool timer_hrt_wrap(void)
+{
+        uint32_t rv = getreg32(NVIC_SYSTICK_CTRL);
+        return ((rv  & NVIC_SYSTICK_CTRL_COUNTFLAG) ? true : false);
+}
+
+/****************************************************************************
  * Name: timer_hrt_max
  *
  * Description:
@@ -407,5 +447,3 @@ static inline time_hrt_cycles_t timer_hrt_elapsed(time_hrt_cycles_t begin, time_
 
 	return elapsed;
 }
-
-

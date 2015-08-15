@@ -51,6 +51,8 @@
  ****************************************************************************/
 
 #define INAK_TIMEOUT          65535
+#define CAN_TX_TIMEOUT_MS     20
+
 #define SJW_POS               24
 #define BS1_POS               16
 #define BS2_POS               20
@@ -238,11 +240,22 @@ void can_tx(uint32_t message_id, size_t length, const uint8_t *message,
      * frame to avoid an issue Ben was seeing with packets going missing on a USBtin. */
 
     uint32_t mask = CAN_TSR_TME0 << mailbox;
-    time_hrt_cycles_t begin = timer_hrt_read();
+	uint32_t cnt = CAN_TX_TIMEOUT_MS;
+	time_hrt_cycles_t begin = timer_hrt_read();
+
+	timer_hrt_clear_wrap();
+
+	while ((getreg32(STM32_CAN1_TSR) & mask) == 0) {
+	    if (timer_hrt_wrap()) {
+	        timer_hrt_clear_wrap();
+	        if (--cnt == 0) {
+	            return;
+	        }
+	    }
+	}
 
     #define WAIT_TX_READY_MS ((TIMER_HRT_CYCLES_PER_MS-(TIMER_HRT_CYCLES_PER_MS/4))
-    while (((getreg32(STM32_CAN1_TSR) & mask) == 0) ||
-            timer_hrt_elapsed(begin, timer_hrt_read()) < WAIT_TX_READY_MS));
+    while (timer_hrt_elapsed(begin, timer_hrt_read()) < WAIT_TX_READY_MS));
 
 	/*
 	 * To allow detection of completion  - Set the LEC to

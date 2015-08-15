@@ -61,6 +61,7 @@ SECTIONS
   .text : {
     _stext = ABSOLUTE(.);
     *(.vectors)
+    KEEP(*(.app_descriptor)) /* Firmware image descriptor */
     *(.text .text.*)
     *(.fixup)
     *(.gnu.warning)
