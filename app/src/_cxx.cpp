@@ -12,6 +12,9 @@ namespace __gnu_cxx
     }
 }
 
+void operator delete (void *) {
+}
+
 extern "C" {
     void
     __attribute__((noreturn))
@@ -31,18 +34,6 @@ extern "C" {
         void *dso_handle)
     {
         return 0;
-    }
-
-    void
-    __attribute__((noreturn))
-    __assert_func (
-        const char __attribute__((unused)) *file,
-        int __attribute__((unused))  line,
-        const char __attribute__((unused))  *func,
-        const char __attribute__((unused))  *failedexpr)
-    {
-        while (1);
-        /* NOTREACHED */
     }
 }
 

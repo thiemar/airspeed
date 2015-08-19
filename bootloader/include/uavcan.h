@@ -747,12 +747,13 @@ size_t uavcan_pack_GetNodeInfo_response(uavcan_GetNodeInfo_response_t
  *   length     - The number of bytes of data
  *
  * Returned value:
- *   None
+ *   The UavcanOk of the data sent. Anything else indicates if a timeout
+ *   occurred.
  *
  ****************************************************************************/
 
-void uavcan_tx_dsdl(uavcan_dsdl_t dsdl, uavcan_protocol_t *protocol,
-		    const uint8_t *transfer, size_t transfer_length);
+uavcan_error_t uavcan_tx_dsdl(uavcan_dsdl_t dsdl, uavcan_protocol_t *protocol,
+		                      const uint8_t *transfer, size_t transfer_length);
 
 /****************************************************************************
  * Name: uavcan_rx_dsdl

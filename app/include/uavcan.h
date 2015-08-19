@@ -157,6 +157,12 @@ public:
         size_t offset;
         uavcan::TransferCRC message_crc = base_crc;
 
+        /* Abort if the message is too long, or if it'd overflow the buffer */
+        if (length > 8u || (int32_t)length > rx_buffer_.getSize() -
+                                             rx_buffer_.getMaxWritePos()) {
+            return;
+        }
+
         if (rx_in_progress_ && in_time - rx_time_ < UAVCAN_REQUEST_TIMEOUT) {
             if (id == rx_message_id_ &&
                     ((data[length - 1u] ^ rx_tail_) & UAVCAN_TOGGLE_BIT) &&
@@ -248,6 +254,10 @@ public:
         }
 
         return has_message;
+    }
+
+    void receive_acknowledge(void) {
+        rx_tail_ = rx_message_id_ = 0;
     }
 
     /* Encoders */

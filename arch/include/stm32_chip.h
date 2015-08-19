@@ -2049,7 +2049,7 @@
 #  define STM32_NLCD                     0   /* No LCD */
 #  define STM32_NUSBOTG                  1   /* USB OTG FS/HS */
 #  define STM32_NGPIO                    114 /* GPIOA-I */
-#  define STM32_NADC                     2  /* 12-bit ADC1-3, 14 channels */
+#  define STM32_NADC                     3  /* 12-bit ADC1-3, 14 channels */
 #  define STM32_NDAC                     2   /* 12-bit DAC1-2 */
 #  define STM32_NCAPSENSE                0   /* No capacitive sensing channels */
 #  define STM32_NCRC                     1   /* CRC */
@@ -2087,7 +2087,7 @@
 #  define STM32_NLCD                     0   /* No LCD */
 #  define STM32_NUSBOTG                  1   /* USB OTG FS/HS */
 #  define STM32_NGPIO                    114 /* GPIOA-I */
-#  define STM32_NADC                     2  /* 12-bit ADC1-3, 16 channels */
+#  define STM32_NADC                     3  /* 12-bit ADC1-3, 16 channels */
 #  define STM32_NDAC                     2   /* 12-bit DAC1-2 */
 #  define STM32_NCAPSENSE                0   /* No capacitive sensing channels */
 #  define STM32_NCRC                     1   /* CRC */
@@ -2125,7 +2125,7 @@
 #  define STM32_NLCD                     0   /* No LCD */
 #  define STM32_NUSBOTG                  1   /* USB OTG FS/HS */
 #  define STM32_NGPIO                    114 /* GPIOA-I */
-#  define STM32_NADC                     2  /* 12-bit ADC1-3, 16 channels */
+#  define STM32_NADC                     3  /* 12-bit ADC1-3, 16 channels */
 #  define STM32_NDAC                     2   /* 12-bit DAC1-2 */
 #  define STM32_NCAPSENSE                0   /* No capacitive sensing channels */
 #  define STM32_NCRC                     1   /* CRC */
@@ -2163,7 +2163,7 @@
 #  define STM32_NLCD                     0   /* No LCD */
 #  define STM32_NUSBOTG                  1   /* USB OTG FS/HS */
 #  define STM32_NGPIO                    114 /* GPIOA-I */
-#  define STM32_NADC                     2  /* 12-bit ADC1-3, 16 channels */
+#  define STM32_NADC                     3  /* 12-bit ADC1-3, 16 channels */
 #  define STM32_NDAC                     2   /* 12-bit DAC1-2 */
 #  define STM32_NCAPSENSE                0   /* No capacitive sensing channels */
 #  define STM32_NCRC                     1   /* CRC */

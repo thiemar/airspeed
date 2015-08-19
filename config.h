@@ -51,7 +51,7 @@
 #define CONFIG_ARCH_FPU
 #define CONFIG_ARCH_CHIP_STM32F302K8
 #define CONFIG_USEC_PER_TICK 1000
-#define CONFIG_IDLETHREAD_STACKSIZE 4096
+#define CONFIG_IDLETHREAD_STACKSIZE 8192
 #define CONFIG_STM32_NOEXT_VECTORS
 #define STM32F30X
 
@@ -180,8 +180,10 @@
 #define FLASH_PAGE_SIZE         STM32_FLASH_PAGESIZE
 #define FLASH_SIZE              (FLASH_NUMBER_PAGES*FLASH_PAGE_SIZE)
 
+#define PARAM_SIZE              (2 * FLASH_PAGE_SIZE)
+
 #define APPLICATION_LOAD_ADDRESS (FLASH_BASE + OPT_APPLICATION_IMAGE_OFFSET)
-#define APPLICATION_SIZE (FLASH_SIZE-OPT_APPLICATION_IMAGE_OFFSET)
+#define APPLICATION_SIZE (FLASH_SIZE-OPT_APPLICATION_IMAGE_OFFSET-PARAM_SIZE)
 #define APPLICATION_LAST_8BIT_ADDRRESS  ((uint8_t *)((APPLICATION_LOAD_ADDRESS+APPLICATION_SIZE)-sizeof(uint8_t)))
 #define APPLICATION_LAST_32BIT_ADDRRESS ((uint32_t *)((APPLICATION_LOAD_ADDRESS+APPLICATION_SIZE)-sizeof(uint32_t)))
 #define APPLICATION_LAST_64BIT_ADDRRESS ((uint64_t *)((APPLICATION_LOAD_ADDRESS+APPLICATION_SIZE)-sizeof(uint64_t)))
@@ -246,8 +248,11 @@ extern "C"
 inline static void board_initialize(void)
 {
     putreg32(getreg32(STM32_RCC_AHBENR) | RCC_AHBENR_IOPAEN |
-         RCC_AHBENR_IOPBEN, STM32_RCC_AHBENR);
-    putreg32(getreg32(STM32_RCC_APB1ENR) | RCC_APB1ENR_CAN1EN, STM32_RCC_APB1ENR);
+             RCC_AHBENR_IOPBEN,
+             STM32_RCC_AHBENR);
+    putreg32(getreg32(STM32_RCC_APB1ENR) | RCC_APB1ENR_CAN1EN |
+             RCC_APB1ENR_SPI3EN,
+             STM32_RCC_APB1ENR);
 
     putreg32(getreg32(STM32_RCC_APB1RSTR) | RCC_APB1RSTR_CAN1RST,
          STM32_RCC_APB1RSTR);
@@ -257,6 +262,12 @@ inline static void board_initialize(void)
     stm32_configgpio(GPIO_CAN_RX_2);
     stm32_configgpio(GPIO_CAN_TX_2);
     stm32_configgpio(GPIO_CAN_SILENT);
+
+    stm32_configgpio(GPIO_SPI3_SCK_1);
+    stm32_configgpio(GPIO_SPI3_MISO_1);
+    stm32_configgpio(GPIO_NSS);
+
+    stm32_configgpio(GPIO_SENSON);
 }
 
 /************************************************************************************

@@ -240,7 +240,8 @@
 
 /* ADC configuration register */
 
-#define ADC_CFGR_DMACFG              (1 << 1)  /* Bit 0:  Direct memory access configuration */
+#define ADC_CFGR_DMAEN               (1)       /* Bit 0: Direct memory access enable */
+#define ADC_CFGR_DMACFG              (1 << 1)  /* Bit 1: Direct memory access configuration */
 #define ADC_CFGR_RES_SHIFT           (3)       /* Bits 3-4: Data resolution */
 #define ADC_CFGR_RES_MASK            (3 << ADC_CFGR_RES_SHIFT)
 #  define ADC_CFGR_RES_12BIT         (0 << ADC_CFGR_RES_SHIFT) /* 15 ADCCLK clyes */
@@ -414,8 +415,8 @@
 #define ADC_JSQR_JSQ1_MASK           (0x1f << ADC_JSQR_JSQ1_SHIFT)
 #  define ADC_JSQR_JSQ1(ch)          ((ch) << ADC_JSQR_JSQ1_SHIFT) /* Channel number 1..18 */
 #define ADC_JSQR_JSQ2_SHIFT          (14)       /* Bits 14-18: 2nd conversion in injected sequence */
-#define ADC_JSQR_JSQ2_MASK           (0x1f << ADC_JSQR_JSQ2_MASK)
-#  define ADC_JSQR_JSQ2(ch)          ((ch) << ADC_JSQR_JSQ2_MASK) /* Channel number 1..18 */
+#define ADC_JSQR_JSQ2_MASK           (0x1f << ADC_JSQR_JSQ2_SHIFT)
+#  define ADC_JSQR_JSQ2(ch)          ((ch) << ADC_JSQR_JSQ2_SHIFT) /* Channel number 1..18 */
 #define ADC_JSQR_JSQ3_SHIFT          (20)       /* Bits 20-24: 3rd conversion in injected sequence */
 #define ADC_JSQR_JSQ3_MASK           (0x1f << ADC_JSQR_JSQ3_SHIFT)
 #  define ADC_JSQR_JSQ3(ch)          ((ch) << ADC_JSQR_JSQ3_SHIFT) /* Channel number 1..18 */
@@ -507,7 +508,7 @@
 #define ADC_CCR_MDMA_SHIFT          (14)       /* Bits 14-15: Direct memory access mode for dual ADC mode */
 #define ADC_CCR_MDMA_MASK           (3 << ADC_CCR_MDMA_SHIFT)
 #  define ADC_CCR_MDMA_DISABLE      (0 << ADC_CCR_MDMA_SHIFT) /* MDMA mode disabled */
-#  define ADC_CCR_MDMA_ 10_12       (2 << ADC_CCR_MDMA_SHIFT) /* MDMA mode enabled (12 / 10-bit) */
+#  define ADC_CCR_MDMA_10_12        (2 << ADC_CCR_MDMA_SHIFT) /* MDMA mode enabled (12 / 10-bit) */
 #  define ADC_CCR_MDMA_6_8          (3 << ADC_CCR_MDMA_SHIFT) /* MDMA mode enabled (8 / 6-bit) */
 #define ADC_CCR_CKMODE_SHIFT        (16)       /* Bits 16-17: ADC clock mode */
 #define ADC_CCR_CKMODE_MASK         (15 << ADC_CCR_CKMODE_SHIFT)

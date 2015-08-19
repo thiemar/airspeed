@@ -51,7 +51,7 @@
  ****************************************************************************/
 
 #define INAK_TIMEOUT          65535
-#define CAN_TX_TIMEOUT_MS     20
+#define CAN_TX_TIMEOUT_MS     (200 /(1000/(1000000/CONFIG_USEC_PER_TICK)))
 
 #define SJW_POS               24
 #define BS1_POS               16
@@ -224,12 +224,12 @@ can_speed_t can_freq2speed(int freq)
  *                mailbox.
  *
  * Returned value:
- *   None
+ *   The CAN_OK of the data sent or CAN_ERROR if a time out occurred
  *
  ****************************************************************************/
 
-void can_tx(uint32_t message_id, size_t length, const uint8_t *message,
-	    uint8_t mailbox)
+uint8_t can_tx(uint32_t message_id, size_t length, const uint8_t *message,
+	           uint8_t mailbox)
 {
 	uint32_t data[2];
 
@@ -249,7 +249,7 @@ void can_tx(uint32_t message_id, size_t length, const uint8_t *message,
 	    if (timer_hrt_wrap()) {
 	        timer_hrt_clear_wrap();
 	        if (--cnt == 0) {
-	            return;
+	            return CAN_ERROR;
 	        }
 	    }
 	}
@@ -269,6 +269,8 @@ void can_tx(uint32_t message_id, size_t length, const uint8_t *message,
 	putreg32(data[1], STM32_CAN1_TDHR(mailbox));
 	putreg32((message_id << CAN_TIR_EXID_SHIFT) | CAN_TIR_IDE | CAN_TIR_TXRQ,
 		 STM32_CAN1_TIR(mailbox));
+
+	return CAN_OK;
 }
 
 /****************************************************************************

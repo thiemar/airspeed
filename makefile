@@ -62,8 +62,8 @@ PROJECT_SRC       = $(PROJECT)/src/
 PROJECT_BUILD     = $(BUILD)$(PROJECT)/
 MCU_CC_FLAGS      = $(CORTEX_M4_HWFP_CC_FLAGS)
 MCU_LIB_PATH      = $(CORTEX_M4_HWFP_LIB_PATH)
-DEBUG_LEVEL       = 3
-OPTIM_FLAGS       = -O3 -flto
+DEBUG_LEVEL       =
+OPTIM_FLAGS       = -Os -flto
 LINKER_SCRIPT     = $(PROJECT)/$(PROJECT).ld
 PROJECT_OBJECTS   = $(addprefix $(PROJECT_BUILD), \
 					  main.o _cxx.o configuration.o can.o shared.o)
@@ -104,7 +104,7 @@ SYS_OBJECTS = stm32_vectors.o up_fpu.o stm32_start.o up_systemreset.o \
 			  stm32_flash.o up_modifyreg32.o stm32_rcc.o stm32_irq.o \
 			  stm32_gpio.o stm32_timerisr.o irq_attach.o irq_dispatch.o \
 			  irq_initialize.o irq_unexpectedisr.o up_doirq.o \
-			  up_cxxinitialize.o
+			  up_cxxinitialize.o libc.o
 SYS_INC_PATHS = -Iarch/include -Iarch/src -Iarch/src/chip -I$(CC_INC)
 SYS_LIB_PATHS = -L$(MCU_LIB_PATH)
 SYS_LIBRARIES =
@@ -126,7 +126,7 @@ UAVCAN_OBJECTS = $(addprefix $(UAVCAN_BUILD), \
 UAVCAN_CONFIG = -DUAVCAN_TINY=1 -DUAVCAN_DEBUG=0 \
 				-DUAVCAN_GENERAL_PURPOSE_PLATFORM=0 -DUAVCAN_NOEXCEPT=1 \
 				-DUAVCAN_TOSTRING=0 -DUAVCAN_USE_EXTERNAL_SNPRINTF=1 \
-				-DUAVCAN_NO_ASSERTIONS=1
+				-DUAVCAN_NO_ASSERTIONS=1 -DUAVCAN_NO_GLOBAL_DATA_TYPE_REGISTRY=1
 UAVCAN_INC_PATHS = -I$(UAVCAN)/include -I$(UAVCAN)/include/dsdlc_generated -I$(CC_INC)
 UAVCAN_LIB_PATHS = -L$(MCU_LIB_PATH)
 UAVCAN_LIBRARIES =
@@ -153,17 +153,18 @@ endif
 
 INCLUDE_PATHS = $(PROJECT_INC_PATHS) $(SYS_INC_PATHS) $(UAVCAN_INC_PATHS)
 LIBRARY_PATHS = $(PROJECT_LIB_PATHS) $(SYS_LIB_PATHS)
-CFLAGS = $(MCU_CC_FLAGS) -c $(OPTIM_FLAGS) $(CC_DEBUG_FLAGS) -fno-common -fmessage-length=0 -Wall -fno-exceptions -ffunction-sections -fdata-sections
+ARCH_CC_FLAGS = -ffreestanding -fsingle-precision-constant -fno-common -fmessage-length=0 -Wall -fno-exceptions -ffunction-sections -fdata-sections
+CFLAGS = $(MCU_CC_FLAGS) -c $(OPTIM_FLAGS) $(CC_DEBUG_FLAGS) $(ARCH_CC_FLAGS)
 CXXFLAGS = $(CFLAGS) -fno-rtti -fno-threadsafe-statics
-LD_FLAGS = $(MCU_CC_FLAGS) $(OPTIM_FLAGS) -Wl,--gc-sections $(SYS_LD_FLAGS) -Wl,-Map=$(PROJECT_BUILD)$(PROJECT).map -nostartfiles # -nostdlib -nodefaultlibs
+LD_FLAGS = $(MCU_CC_FLAGS) $(OPTIM_FLAGS) -Wl,--gc-sections $(SYS_LD_FLAGS) -Wl,-Map=$(PROJECT_BUILD)$(PROJECT).map -ffreestanding -nostartfiles
 LD_SYS_LIBS = $(SYS_LIBRARIES)
 
 BL_INCLUDE_PATHS = $(BL_INC_PATHS) $(SYS_INC_PATHS)
 BL_LIBRARY_PATHS = $(BL_LIB_PATHS) $(SYS_LIB_PATHS)
-BL_CFLAGS = $(MCU_CC_FLAGS) -c $(BL_OPTIM_FLAGS) $(BL_CC_DEBUG_FLAGS) -fno-common -fmessage-length=0 -Wall -fno-exceptions -ffunction-sections -fdata-sections
+BL_CFLAGS = $(MCU_CC_FLAGS) -c $(BL_OPTIM_FLAGS) $(BL_CC_DEBUG_FLAGS) $(ARCH_CC_FLAGS)
 BL_LD_FLAGS = $(MCU_CC_FLAGS) $(BL_OPTIM_FLAGS) -Wl,--gc-sections $(SYS_LD_FLAGS) -Wl,-Map=$(BL_BUILD)$(BL).map -nostartfiles -nostdlib -nodefaultlibs
 
-UAVCAN_CXXFLAGS = $(MCU_CC_FLAGS) -c -O3 -fno-common -fmessage-length=0 -Wall -fno-exceptions -ffunction-sections -fdata-sections -fno-rtti -fno-threadsafe-statics
+UAVCAN_CXXFLAGS = $(MCU_CC_FLAGS) -c $(OPTIM_FLAGS) $(ARCH_CC_FLAGS) -fno-rtti -fno-threadsafe-statics
 
 ###############################################################################
 # Makefile execution
@@ -181,11 +182,11 @@ clean:
 
 $(BL_BUILD)arch/%.o: $(ARCH_SRC)%.S
 	@mkdir -p $(@D)
-	$(CC) $(BL_CFLAGS) $(CC_SYMBOLS) -D__ASSEMBLY__ $(SYS_INC_PATHS) -o $@ $<
+	$(CC) $(BL_CFLAGS) $(BL_CC_SYMBOLS) -D__ASSEMBLY__ $(SYS_INC_PATHS) -o $@ $<
 
 $(BL_BUILD)arch/%.o: $(ARCH_SRC)%.c
 	@mkdir -p $(@D)
-	$(CC)  $(BL_CFLAGS) $(CC_SYMBOLS) -std=gnu99 $(SYS_INC_PATHS) -o $@ $<
+	$(CC)  $(BL_CFLAGS) $(BL_CC_SYMBOLS) -std=gnu99 $(SYS_INC_PATHS) -o $@ $<
 
 $(BL_BUILD)%.o: $(BL_SRC)%.c
 	@mkdir -p $(@D)
@@ -215,7 +216,7 @@ $(PROJECT_BUILD)%.o: $(PROJECT_SRC)%.cpp
 	@mkdir -p $(@D)
 	$(CPP) $(CXXFLAGS) $(CC_SYMBOLS) -std=c++11 $(INCLUDE_PATHS) $(UAVCAN_INCLUDE_PATHS) -o $@ $<
 
-firmware/$(BL).elf: $(BL_OBJECTS) $(addprefix $(BL_BUILD)arch/, $(SYS_OBJECTS) libc.o up_exit.o)
+firmware/$(BL).elf: $(BL_OBJECTS) $(addprefix $(BL_BUILD)arch/, $(SYS_OBJECTS) up_exit.o)
 	@mkdir -p $(@D)
 	$(LD) $(BL_LD_FLAGS) -T$(BL_LINKER_SCRIPT) $(BL_LIBRARY_PATHS) -o $@ $^ $(BL_LIBRARIES) $(SYS_LIBRARIES)
 
@@ -234,5 +235,5 @@ firmware/$(PROJECT).bin: firmware/$(PROJECT).elf
 	$(OBJCOPY) -O binary $< $@
 
 image: firmware/$(PROJECT).bin
-	$(PYTHON) tools/make_can_boot_descriptor.py -g firmware/$(PROJECT).bin firmware/com.thiemar.p7000d-v1-1.0.00000000.uavcan.bin
+	$(PYTHON) tools/make_can_boot_descriptor.py  --verbose -g firmware/$(PROJECT).bin firmware/com.thiemar.p7000d-v1-1.0.00000000.uavcan.bin
 

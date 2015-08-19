@@ -44,12 +44,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <math.h>
+#include <float.h>
 
 /****************************************************************************
  * Private Functions
  ****************************************************************************/
-
-void _exit(int status);
 
 /****************************************************************************
  * Pre-processor Definitions
@@ -59,6 +59,10 @@ void _exit(int status);
  * Global Functions
  ****************************************************************************/
 
+#if defined(__cplusplus)
+extern "C" {
+#endif
+
 void
 __attribute__((noreturn))
 __assert_func (
@@ -67,13 +71,13 @@ __assert_func (
     const char __attribute__((unused))  *func,
     const char __attribute__((unused))  *failedexpr)
 {
-  _exit(0);
+  while (1);
   /* NOTREACHED */
 }
 
 void abort(void)
 {
-  _exit(0);
+  while (1);
 }
 
 void *memcpy(void *dest, const void *src, size_t n)
@@ -176,3 +180,29 @@ int strncmp(const char *cs, const char *ct, size_t nb)
 
   return result;
 }
+
+int memcmp(const void *s1, const void *s2, size_t n)
+{
+  unsigned char *p1 = (unsigned char *)s1;
+  unsigned char *p2 = (unsigned char *)s2;
+
+  while (n-- > 0)
+    {
+      if (*p1 < *p2)
+        {
+          return -1;
+        }
+      else if (*p1 > *p2)
+        {
+          return 1;
+        }
+
+      p1++;
+      p2++;
+    }
+  return 0;
+}
+
+#if defined(__cplusplus)
+}
+#endif

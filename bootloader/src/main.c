@@ -207,8 +207,9 @@ static void node_info_process(bl_timer_id id, void *context)
 	protocol.id.u32 = ANY_NODE_ID;
 
 	if (UavcanOk == uavcan_rx_dsdl(DSDLReqGetNodeInfo, &protocol, (uint8_t *) &request, &length, 0)) {
-		uavcan_tx_dsdl(DSDLRspGetNodeInfo, &protocol, (const uint8_t *) &response, send_length);
-		bootloader.sent_node_info_response = true;
+		if (UavcanOk == uavcan_tx_dsdl(DSDLRspGetNodeInfo, &protocol, (const uint8_t *) &response, send_length)) {
+			bootloader.sent_node_info_response = true;
+		}
 	}
 }
 
@@ -602,7 +603,9 @@ static uavcan_error_t wait_for_beginfirmwareupdate(bl_timer_id tboot,
 
 		uavcan_BeginFirmwareUpdate_response response;
 		response.error = ERROR_OK;
-		uavcan_tx_dsdl(DSDLRspBeginFirmwareUpdate, &protocol,
+
+		/* We do not care if this send fails */
+		(void)uavcan_tx_dsdl(DSDLRspBeginFirmwareUpdate, &protocol,
 			       (uint8_t *)&response, sizeof(uavcan_BeginFirmwareUpdate_response));
 
 		rx_length = rx_length - uavcan_byte_count(BeginFirmwareUpdate, source_node_id);
@@ -656,25 +659,25 @@ static void file_getinfo(const uavcan_Path_t *fw_path,
 		protocol.ser.source_node_id = g_server_node_id;
 		size_t length =  FixedSizeGetInfoRequest + fw_path_length;
 
-		uavcan_tx_dsdl(DSDLReqGetInfo, &protocol,
-			       (uint8_t *)&request, length);
+		if (UavcanOk == uavcan_tx_dsdl(DSDLReqGetInfo, &protocol,
+					       			   (uint8_t *)&request, length)) {
+			length = sizeof(response);
+			protocol.ser.source_node_id = g_server_node_id;
+			uavcan_error_t status = uavcan_rx_dsdl(DSDLRspGetInfo,
+							       &protocol,
+							       (uint8_t *) &response,
+							       &length,
+							       UavcanServiceTimeOutMs);
 
-		length = sizeof(response);
-		protocol.ser.source_node_id = g_server_node_id;
-		uavcan_error_t status = uavcan_rx_dsdl(DSDLRspGetInfo,
-						       &protocol,
-						       (uint8_t *) &response,
-						       &length,
-						       UavcanServiceTimeOutMs);
+			protocol.tail.transfer_id++;
 
-		protocol.tail.transfer_id++;
-
-		/* UAVCANBootloader_v0.3 #27: validateFileInfo(file_info, &errorcode) */
-		if (status == UavcanOk && response.error.value == FILE_ERROR_OK &&
-		    (response.entry_type.flags & (ENTRY_TYPE_FLAG_FILE | ENTRY_TYPE_FLAG_READABLE)) &&
-		    response.size > 0 && response.size < OPT_APPLICATION_IMAGE_LENGTH) {
-			*fw_image_size = response.size;
-			break;
+			/* UAVCANBootloader_v0.3 #27: validateFileInfo(file_info, &errorcode) */
+			if (status == UavcanOk && response.error.value == FILE_ERROR_OK &&
+			    (response.entry_type.flags & (ENTRY_TYPE_FLAG_FILE | ENTRY_TYPE_FLAG_READABLE)) &&
+			    response.size > 0 && response.size < OPT_APPLICATION_IMAGE_LENGTH) {
+				*fw_image_size = response.size;
+				break;
+			}
 		}
 	}
 }
@@ -770,18 +773,20 @@ static flash_error_t file_read_and_program(const uavcan_Path_t *fw_path,
 
 			length = FixedSizeReadRequest + fw_path_length;
 			protocol.ser.source_node_id = g_server_node_id;
-			uavcan_tx_dsdl(DSDLReqRead, &protocol,
-				       (uint8_t *)&request, length);
+			uavcan_status = uavcan_tx_dsdl(DSDLReqRead, &protocol,
+						       (uint8_t *)&request, length);
 
-			length = sizeof(uavcan_Read_response_t);
-			protocol.ser.source_node_id = g_server_node_id;
-			uavcan_status = uavcan_rx_dsdl(DSDLRspRead,
-						       &protocol,
-						       (uint8_t *) &response,
-						       &length,
-						       UavcanServiceTimeOutMs);
+			if (uavcan_status == UavcanOk) {
+				length = sizeof(uavcan_Read_response_t);
+				protocol.ser.source_node_id = g_server_node_id;
+				uavcan_status = uavcan_rx_dsdl(DSDLRspRead,
+							       &protocol,
+							       (uint8_t *) &response,
+							       &length,
+							       UavcanServiceTimeOutMs);
 
-			protocol.tail.transfer_id++;
+				protocol.tail.transfer_id++;
+			}
 
 			if (uavcan_status != UavcanOk) {
 
@@ -1333,4 +1338,7 @@ failure:
 
 	timer_free(tmr);
 	up_systemreset();
+
+	/* Won't reach here */
+	while (1);
 }

@@ -43,7 +43,7 @@
 
 MEMORY
 {
-    flash (rx) : ORIGIN = 0x08002000, LENGTH = 56K
+    flash (rx) : ORIGIN = 0x08002000, LENGTH = 52K
     sram (rwx) : ORIGIN = 0x20000000, LENGTH = 16K
 }
 

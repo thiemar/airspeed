@@ -118,8 +118,8 @@ VECTOR(stm32_dma2s1, STM32_IRQ_DMA2S1)           /* Vector 16+57: DMA2 Stream 1 
 VECTOR(stm32_dma2s2, STM32_IRQ_DMA2S2)           /* Vector 16+58: DMA2 Stream 2 global interrupt */
 VECTOR(stm32_dma2s3, STM32_IRQ_DMA2S3)           /* Vector 16+59: DMA2 Stream 3 global interrupt */
 VECTOR(stm32_dma2s4, STM32_IRQ_DMA2S4)           /* Vector 16+60: DMA2 Stream 4 global interrupt */
-VECTOR(stm32_reserved, STM32_IRQ_RES01)          /* Vector 16+61: 1st Reserved (Ethernet global) interrupt */
-VECTOR(stm32_reserved, STM32_IRQ_RES02)          /* Vector 16+62: 2nd Reserved (Ethernet Wakeup through EXTI line) interrupt */
+VECTOR(stm32_res01, STM32_IRQ_RES01)             /* Vector 16+61: 1st Reserved (Ethernet global) interrupt */
+VECTOR(stm32_res02, STM32_IRQ_RES02)             /* Vector 16+62: 2nd Reserved (Ethernet Wakeup through EXTI line) interrupt */
 VECTOR(stm32_can2tx, STM32_IRQ_CAN2TX)           /* Vector 16+63: CAN2 TX interrupts */
 VECTOR(stm32_can2rx0, STM32_IRQ_CAN2RX0)         /* Vector 16+64: CAN2 RX0 interrupts */
 VECTOR(stm32_can2rx1, STM32_IRQ_CAN2RX1)         /* Vector 16+65: CAN2 RX1 interrupt */
@@ -136,24 +136,24 @@ VECTOR(stm32_otghsep1in, STM32_IRQ_OTGHSEP1IN)   /* Vector 16+75: USB On The Go 
 VECTOR(stm32_otghswkup, STM32_IRQ_OTGHSWKUP)     /* Vector 16+76: USB On The Go HS Wakeup through EXTI interrupt */
 VECTOR(stm32_otghs, STM32_IRQ_OTGHS)             /* Vector 16+77: USB On The Go HS global interrupt */
 VECTOR(stm32_dcmi, STM32_IRQ_DCMI)               /* Vector 16+78: DCMI global interrupt */
-VECTOR(stm32_reserved, STM32_IRQ_RES03)          /* Vector 16+79: 3rd Reserved (CRYP crypto global) interrupt */
-VECTOR(stm32_reserved, STM32_IRQ_RES04)          /* Vector 16+80: 4th Reserved (Hash and Rng global) interrupt */
+VECTOR(stm32_res03, STM32_IRQ_RES03)             /* Vector 16+79: 3rd Reserved (CRYP crypto global) interrupt */
+VECTOR(stm32_res04, STM32_IRQ_RES04)             /* Vector 16+80: 4th Reserved (Hash and Rng global) interrupt */
 VECTOR(stm32_fpu, STM32_IRQ_FPU)                 /* Vector 16+81: FPU global interrupt */
-VECTOR(stm32_reserved, STM32_IRQ_RES05)          /* Vector 16+82: 5th Reserved (UART7)interrupt */
-VECTOR(stm32_reserved, STM32_IRQ_RES06)          /* Vector 16+83: 6th Reserved (UART8) interrupt */
+VECTOR(stm32_res05, STM32_IRQ_RES05)             /* Vector 16+82: 5th Reserved (UART7)interrupt */
+VECTOR(stm32_res06, STM32_IRQ_RES06)             /* Vector 16+83: 6th Reserved (UART8) interrupt */
 VECTOR(stm32_spi4, STM32_IRQ_SPI4)               /* Vector 16+84: SPI4 interrupt */
-VECTOR(stm32_reserved, STM32_IRQ_RES07)          /* Vector 16+85: 7th Reserved (SPI5) interrupt */
-VECTOR(stm32_reserved, STM32_IRQ_RES08)          /* Vector 16+86: 8th Reserved (SPI6) interrupt */
+VECTOR(stm32_res07, STM32_IRQ_RES07)             /* Vector 16+85: 7th Reserved (SPI5) interrupt */
+VECTOR(stm32_res08, STM32_IRQ_RES08)             /* Vector 16+86: 8th Reserved (SPI6) interrupt */
 VECTOR(stm32_sai1, STM32_IRQ_SAI1)               /* Vector 16+87: SAI1 interrupt */
-VECTOR(stm32_reserved, STM32_IRQ_RES09)          /* Vector 16+88: 9th Reserved (LTDCINT interrupt */
-VECTOR(stm32_reserved, STM32_IRQ_RES10)          /* Vector 16+89: 10th Reserved (LTDCERRINT) interrupt */
-VECTOR(stm32_reserved, STM32_IRQ_RES11)          /* Vector 16+90: 11th Reserved (DMA2D) interrupt */
+VECTOR(stm32_res09, STM32_IRQ_RES09)             /* Vector 16+88: 9th Reserved (LTDCINT interrupt */
+VECTOR(stm32_res10, STM32_IRQ_RES10)             /* Vector 16+89: 10th Reserved (LTDCERRINT) interrupt */
+VECTOR(stm32_res11, STM32_IRQ_RES11)             /* Vector 16+90: 11th Reserved (DMA2D) interrupt */
 /* todo:Implemnt 91-96 */
-VECTOR(stm32_reserved, STM32_IRQ_SAI2)           /* Vector 16+91: SAI2 Global  interrupt */
-VECTOR(stm32_reserved, STM32_IRQ_QUADSPI)        /* Vector 16+92: QuadSPI Global interrupt */
-VECTOR(stm32_reserved, STM32_IRQ_HDMICEC)        /* Vector 16+93: HDMI-CEC Global interrupt */
-VECTOR(stm32_reserved, STM32_IRQ_SPDIFRX)        /* Vector 16+94: SPDIF-Rx Global interrupt */
-VECTOR(stm32_reserved, STM32_IRQ_FMPI2C1)        /* Vector 16+95: FMPI2C1 event interrupt */
-VECTOR(stm32_reserved, STM32_IRQ_FMPI2C1ERR)     /* Vector 16+96: FMPI2C1 Error event interrupt */
+VECTOR(stm32_sai2, STM32_IRQ_SAI2)               /* Vector 16+91: SAI2 Global  interrupt */
+VECTOR(stm32_quadspi, STM32_IRQ_QUADSPI)         /* Vector 16+92: QuadSPI Global interrupt */
+VECTOR(stm32_hdmicec, STM32_IRQ_HDMICEC)         /* Vector 16+93: HDMI-CEC Global interrupt */
+VECTOR(stm32_spdifrx, STM32_IRQ_SPDIFRX)         /* Vector 16+94: SPDIF-Rx Global interrupt */
+VECTOR(stm32_fmpi2c1, STM32_IRQ_FMPI2C1)         /* Vector 16+95: FMPI2C1 event interrupt */
+VECTOR(stm32_fmpi2c1err, STM32_IRQ_FMPI2C1ERR)   /* Vector 16+96: FMPI2C1 Error event interrupt */
 
 #endif /* CONFIG_ARMV7M_CMNVECTOR */

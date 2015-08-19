@@ -94,7 +94,7 @@ static void node_init(uint8_t node_id);
 static void node_run(uint8_t node_id, Configuration& configuration);
 
 
-extern "C" int main(int argc, char *argv[]) {
+extern "C" void main(void) {
     up_cxxinitialize();
     board_initialize();
     irqenable();
@@ -157,14 +157,6 @@ static void node_init(uint8_t node_id) {
 
 
 static void spi_init(void) {
-    putreg32(getreg32(STM32_RCC_APB1ENR) | RCC_APB1ENR_SPI3EN,
-             STM32_RCC_APB1ENR);
-
-    stm32_configgpio(GPIO_SPI3_SCK_1);
-    stm32_configgpio(GPIO_SPI3_MISO_1);
-    stm32_configgpio(GPIO_NSS);
-    stm32_configgpio(GPIO_SENSON);
-
     /*
     SPI device configuration. Refer to:
     "SPI Communication with Honeywell Digital Output Pressure Sensors"
@@ -239,7 +231,8 @@ static void __attribute__((noreturn)) node_run(
              status_interval, tas_interval, ias_interval, last_tx_time,
              sensor_data;
     uint8_t filter_id, tas_transfer_id, status_transfer_id,
-            ias_transfer_id, message[8], delay_line_idx;
+            ias_transfer_id, message[8], delay_line_idx, broadcast_filter_id,
+            service_filter_id;
     bool param_valid, wants_bootloader_restart;
     struct param_t param;
     float value, ias_delay_line[64], tas_delay_line[64], ias_accum, tas_accum,
@@ -261,6 +254,8 @@ static void __attribute__((noreturn)) node_run(
 
     tas_transfer_id = status_transfer_id = ias_transfer_id = 0u;
     tas_time = status_time = ias_time = last_tx_time = 0u;
+
+    broadcast_filter_id = service_filter_id = 0xFFu;
 
     wants_bootloader_restart = false;
 
@@ -292,6 +287,9 @@ static void __attribute__((noreturn)) node_run(
     } else {
         ias_lpf_coeff = 1.0f;
     }
+
+    memset(ias_delay_line, 0, sizeof(ias_delay_line));
+    memset(tas_delay_line, 0, sizeof(tas_delay_line));
 
     while (true) {
         current_time = g_uptime;
@@ -379,22 +377,25 @@ static void __attribute__((noreturn)) node_run(
                                             length, message);
 
             if (broadcast_manager.is_rx_done()) {
+                broadcast_filter_id = filter_id;
                 break;
             }
         }
 
         if (broadcast_manager.is_rx_done()) {
-            if (filter_id == UAVCAN_EQUIPMENT_AIR_DATA_STATICPRESSURE &&
+            if (broadcast_filter_id == UAVCAN_EQUIPMENT_AIR_DATA_STATICPRESSURE &&
                     broadcast_manager.decode_air_data_staticpressure(static_pressure)) {
                 static_pressure_pa = static_pressure.static_pressure;
                 static_pressure_var_pa2 =
                     static_pressure.static_pressure_variance;
-            } else if (filter_id == UAVCAN_EQUIPMENT_AIR_DATA_STATICTEMPERATURE &&
+            } else if (broadcast_filter_id == UAVCAN_EQUIPMENT_AIR_DATA_STATICTEMPERATURE &&
                         broadcast_manager.decode_air_data_statictemperature(static_temp)) {
                 static_temp_k = static_temp.static_temperature;
                 static_temp_var_k2 =
                     static_temp.static_temperature_variance;
             }
+
+            broadcast_manager.receive_acknowledge();
         }
 
         /*
@@ -426,6 +427,7 @@ static void __attribute__((noreturn)) node_run(
                                           length, message);
 
             if (service_manager.is_rx_done()) {
+                service_filter_id = filter_id;
                 break;
             }
         }
@@ -435,7 +437,7 @@ static void __attribute__((noreturn)) node_run(
         completely sent, to avoid overwriting the TX buffer.
         */
         if (service_manager.is_rx_done() && service_manager.is_tx_done()) {
-            if (filter_id == UAVCAN_PROTOCOL_PARAM_EXECUTEOPCODE &&
+            if (service_filter_id == UAVCAN_PROTOCOL_PARAM_EXECUTEOPCODE &&
                     service_manager.decode_executeopcode_request(xo_req)) {
                 /*
                 Return OK if the opcode is understood and the controller is
@@ -459,7 +461,7 @@ static void __attribute__((noreturn)) node_run(
                     xo_resp.ok = true;
                 }
                 service_manager.encode_executeopcode_response(xo_resp);
-            } else if (filter_id == UAVCAN_PROTOCOL_PARAM_GETSET &&
+            } else if (service_filter_id == UAVCAN_PROTOCOL_PARAM_GETSET &&
                     service_manager.decode_getset_request(gs_req)) {
                 uavcan::protocol::param::GetSet::Response resp;
 
@@ -479,7 +481,7 @@ static void __attribute__((noreturn)) node_run(
                                                                value);
                     } else if (param.public_type == PARAM_TYPE_INT && !gs_req.name.empty() &&
                             gs_req.value.is(uavcan::protocol::param::Value::Tag::integer_value)) {
-                        value = (float)gs_req.value.to<uavcan::protocol::param::Value::Tag::integer_value>();
+                        value = (float)((int32_t)gs_req.value.to<uavcan::protocol::param::Value::Tag::integer_value>());
                         configuration.set_param_value_by_index(param.index,
                                                                value);
                     }
@@ -494,15 +496,15 @@ static void __attribute__((noreturn)) node_run(
                         resp.min_value.to<uavcan::protocol::param::NumericValue::Tag::real_value>() = param.min_value;
                         resp.max_value.to<uavcan::protocol::param::NumericValue::Tag::real_value>() = param.max_value;
                     } else if (param.public_type == PARAM_TYPE_INT) {
-                        resp.value.to<uavcan::protocol::param::Value::Tag::integer_value>() = (int64_t)value;
-                        resp.default_value.to<uavcan::protocol::param::Value::Tag::integer_value>() = (int64_t)param.default_value;
-                        resp.min_value.to<uavcan::protocol::param::NumericValue::Tag::integer_value>() = (int64_t)param.min_value;
-                        resp.max_value.to<uavcan::protocol::param::NumericValue::Tag::integer_value>() = (int64_t)param.max_value;
+                        resp.value.to<uavcan::protocol::param::Value::Tag::integer_value>() = (int32_t)value;
+                        resp.default_value.to<uavcan::protocol::param::Value::Tag::integer_value>() = (int32_t)param.default_value;
+                        resp.min_value.to<uavcan::protocol::param::NumericValue::Tag::integer_value>() = (int32_t)param.min_value;
+                        resp.max_value.to<uavcan::protocol::param::NumericValue::Tag::integer_value>() = (int32_t)param.max_value;
                     }
                 }
 
                 service_manager.encode_getset_response(resp);
-            } else if (filter_id == UAVCAN_PROTOCOL_FILE_BEGINFIRMWAREUPDATE) {
+            } else if (service_filter_id == UAVCAN_PROTOCOL_FILE_BEGINFIRMWAREUPDATE) {
                 uavcan::protocol::file::BeginFirmwareUpdate::Response resp;
 
                 /*
@@ -512,7 +514,7 @@ static void __attribute__((noreturn)) node_run(
                 resp.error = resp.ERROR_OK;
                 wants_bootloader_restart = true;
                 service_manager.encode_beginfirmwareupdate_response(resp);
-            } else if (filter_id == UAVCAN_PROTOCOL_GETNODEINFO) {
+            } else if (service_filter_id == UAVCAN_PROTOCOL_GETNODEINFO) {
                 uavcan::protocol::GetNodeInfo::Response resp;
 
                 /* Empty request so don't need to decode */
@@ -532,18 +534,18 @@ static void __attribute__((noreturn)) node_run(
                     flash_app_descriptor.vcs_commit;
                 resp.software_version.image_crc =
                     flash_app_descriptor.image_crc;
-                resp.hardware_version.major = 1u;
-                resp.hardware_version.minor = 0u;
+                resp.hardware_version.major = HW_VERSION_MAJOR;
+                resp.hardware_version.minor = HW_VERSION_MINOR;
                 /* Set the unique ID */
                 memset(resp.hardware_version.unique_id.begin(), 0u,
                        resp.hardware_version.unique_id.size());
                 memcpy(resp.hardware_version.unique_id.begin(),
                        (uint8_t*)0x1ffff7ac, 12u);
                 /* Set the hardware name */
-                resp.name = "com.thiemar.p7000d-v1";
+                resp.name = HW_UAVCAN_NAME;
 
                 service_manager.encode_getnodeinfo_response(resp);
-            } else if (filter_id == UAVCAN_PROTOCOL_RESTARTNODE &&
+            } else if (service_filter_id == UAVCAN_PROTOCOL_RESTARTNODE &&
                     service_manager.decode_restartnode_request(rn_req)) {
                 uavcan::protocol::RestartNode::Response resp;
 
@@ -558,6 +560,8 @@ static void __attribute__((noreturn)) node_run(
                 }
                 service_manager.encode_restartnode_response(resp);
             }
+
+            service_manager.receive_acknowledge();
         }
 
         /* Transmit service responses if available */
@@ -615,11 +619,6 @@ static void __attribute__((noreturn)) node_run(
         */
         if (broadcast_manager.is_tx_done() && service_manager.is_tx_done() &&
                 wants_bootloader_restart) {
-            /*
-            Write the CAN bus speed and node ID to the bootloader/app shared
-            registers so the bootloader can maintain the same settings.
-            */
-            bootloader_write(&g_bootloader_app_shared);
             up_systemreset();
         }
     }

@@ -70,11 +70,11 @@ enum param_type_t {
 struct param_t {
     uint8_t index;
     uint8_t public_type;
-    char name[PARAM_NAME_MAX_LEN];
+    const char* name;
     float default_value;
     float min_value;
     float max_value;
-} __attribute__ ((packed));
+};
 
 
 class Configuration {
