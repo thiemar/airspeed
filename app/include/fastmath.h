@@ -216,5 +216,6 @@ airspeed_from_pressure_temp(
 
     return STANDARD_C_M_PER_S *
            __VSQRTF((5.0f / STANDARD_TEMP_K) * temp_k *
-                    (fast_powf(pressure_ratio + 1.0f, 2.0f / 7.0f) - 1.0f));
+                    (fast_powf(pressure_ratio + 1.0f, 2.0f / 7.0f) - 1.0f)) *
+           (dynamic_pressure_pa > 0.0f ? 1.0f : -1.0f);
 }

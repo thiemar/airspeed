@@ -7,6 +7,29 @@
 #include "shared.h"
 
 
+#include "uavcan/protocol/param/ExecuteOpcode.hpp"
+#include "uavcan/protocol/param/GetSet.hpp"
+#include "uavcan/protocol/file/BeginFirmwareUpdate.hpp"
+#include "uavcan/protocol/GetNodeInfo.hpp"
+#include "uavcan/protocol/NodeStatus.hpp"
+#include "uavcan/protocol/RestartNode.hpp"
+#include "uavcan/equipment/air_data/TrueAirspeed.hpp"
+#include "uavcan/equipment/air_data/IndicatedAirspeed.hpp"
+#include "uavcan/equipment/air_data/StaticPressure.hpp"
+#include "uavcan/equipment/air_data/StaticTemperature.hpp"
+
+
+enum uavcan_dtid_filter_id_t {
+    UAVCAN_PROTOCOL_PARAM_EXECUTEOPCODE = 0u,
+    UAVCAN_PROTOCOL_PARAM_GETSET,
+    UAVCAN_PROTOCOL_FILE_BEGINFIRMWAREUPDATE,
+    UAVCAN_PROTOCOL_GETNODEINFO,
+    UAVCAN_PROTOCOL_RESTARTNODE,
+    UAVCAN_EQUIPMENT_AIR_DATA_STATICPRESSURE,
+    UAVCAN_EQUIPMENT_AIR_DATA_STATICTEMPERATURE
+};
+
+
 static volatile uint32_t g_uptime;
 static struct bootloader_app_shared_t g_bootloader_app_shared;
 
@@ -274,21 +297,21 @@ static void __attribute__((noreturn)) node_run(
     ias_out = 0.0f;
 
     if (tas_interval) {
-        wb = 2.0f * (float)M_PI / (tas_interval * 0.5f * 1e-3f);
+        wb = 2.0f * (float)M_PI / (tas_interval * 1e-6f) * 0.1f;
         tas_lpf_coeff = 1.0f - fast_expf(-wb * (1.0f / 250.0f));
     } else {
         tas_lpf_coeff = 1.0f;
     }
 
     if (ias_interval) {
-        wb = 2.0f * (float)M_PI / (ias_interval * 0.5f * 1e-3f);
+        wb = 2.0f * (float)M_PI / (ias_interval * 1e-6f) * 0.1f;
         ias_lpf_coeff = 1.0f - fast_expf(-wb * (1.0f / 250.0f));
     } else {
         ias_lpf_coeff = 1.0f;
     }
 
-    memset(ias_delay_line, 0, sizeof(ias_delay_line));
-    memset(tas_delay_line, 0, sizeof(tas_delay_line));
+    memset(ias_delay_line, 0, sizeof(float) * 64);
+    memset(tas_delay_line, 0, sizeof(float) * 64);
 
     while (true) {
         current_time = g_uptime;
@@ -305,7 +328,7 @@ static void __attribute__((noreturn)) node_run(
 
                 if (current_time < SENSOR_STARTUP_MS * 10) {
                     offset_pressure_pa +=
-                        (differential_pressure_pa - offset_pressure_pa) * 0.002f;
+                        (differential_pressure_pa - offset_pressure_pa) * 0.01f;
                 } else {
                     differential_pressure_pa -= offset_pressure_pa;
 
@@ -345,6 +368,10 @@ static void __attribute__((noreturn)) node_run(
                                 FIR_TAPS[i];
                         }
 
+                        /* Renormalize */
+                        ias_accum /= 0.99443f;
+                        tas_accum /= 0.99443f;
+
                         /* We now have the accumulated value, so apply the IIR */
                         ias_out += (ias_accum - ias_out) * ias_lpf_coeff;
                         tas_out += (tas_accum - tas_out) * tas_lpf_coeff;
@@ -383,12 +410,12 @@ static void __attribute__((noreturn)) node_run(
 
         if (broadcast_manager.is_rx_done()) {
             if (broadcast_filter_id == UAVCAN_EQUIPMENT_AIR_DATA_STATICPRESSURE &&
-                    broadcast_manager.decode_air_data_staticpressure(static_pressure)) {
+                    broadcast_manager.decode(static_pressure)) {
                 static_pressure_pa = static_pressure.static_pressure;
                 static_pressure_var_pa2 =
                     static_pressure.static_pressure_variance;
             } else if (broadcast_filter_id == UAVCAN_EQUIPMENT_AIR_DATA_STATICTEMPERATURE &&
-                        broadcast_manager.decode_air_data_statictemperature(static_temp)) {
+                        broadcast_manager.decode(static_temp)) {
                 static_temp_k = static_temp.static_temperature;
                 static_temp_var_k2 =
                     static_temp.static_temperature_variance;
@@ -437,7 +464,7 @@ static void __attribute__((noreturn)) node_run(
         */
         if (service_manager.is_rx_done() && service_manager.is_tx_done()) {
             if (service_filter_id == UAVCAN_PROTOCOL_PARAM_EXECUTEOPCODE &&
-                    service_manager.decode_executeopcode_request(xo_req)) {
+                    service_manager.decode(xo_req)) {
                 /*
                 Return OK if the opcode is understood and the controller is
                 stopped, otherwise reject.
@@ -459,9 +486,9 @@ static void __attribute__((noreturn)) node_run(
                     configuration.write_params();
                     xo_resp.ok = true;
                 }
-                service_manager.encode_executeopcode_response(xo_resp);
+                service_manager.encode_response<uavcan::protocol::param::ExecuteOpcode>(xo_resp);
             } else if (service_filter_id == UAVCAN_PROTOCOL_PARAM_GETSET &&
-                    service_manager.decode_getset_request(gs_req)) {
+                    service_manager.decode(gs_req)) {
                 uavcan::protocol::param::GetSet::Response resp;
 
                 if (!gs_req.name.empty()) {
@@ -502,7 +529,7 @@ static void __attribute__((noreturn)) node_run(
                     }
                 }
 
-                service_manager.encode_getset_response(resp);
+                service_manager.encode_response<uavcan::protocol::param::GetSet>(resp);
             } else if (service_filter_id == UAVCAN_PROTOCOL_FILE_BEGINFIRMWAREUPDATE) {
                 uavcan::protocol::file::BeginFirmwareUpdate::Response resp;
 
@@ -512,7 +539,7 @@ static void __attribute__((noreturn)) node_run(
                 */
                 resp.error = resp.ERROR_OK;
                 wants_bootloader_restart = true;
-                service_manager.encode_beginfirmwareupdate_response(resp);
+                service_manager.encode_response<uavcan::protocol::file::BeginFirmwareUpdate>(resp);
             } else if (service_filter_id == UAVCAN_PROTOCOL_GETNODEINFO) {
                 uavcan::protocol::GetNodeInfo::Response resp;
 
@@ -543,9 +570,9 @@ static void __attribute__((noreturn)) node_run(
                 /* Set the hardware name */
                 resp.name = HW_UAVCAN_NAME;
 
-                service_manager.encode_getnodeinfo_response(resp);
+                service_manager.encode_response<uavcan::protocol::GetNodeInfo>(resp);
             } else if (service_filter_id == UAVCAN_PROTOCOL_RESTARTNODE &&
-                    service_manager.decode_restartnode_request(rn_req)) {
+                    service_manager.decode(rn_req)) {
                 uavcan::protocol::RestartNode::Response resp;
 
                 /*
@@ -557,7 +584,7 @@ static void __attribute__((noreturn)) node_run(
                 } else {
                     resp.ok = false;
                 }
-                service_manager.encode_restartnode_response(resp);
+                service_manager.encode_response<uavcan::protocol::RestartNode>(resp);
             }
 
             service_manager.receive_acknowledge();
@@ -575,20 +602,19 @@ static void __attribute__((noreturn)) node_run(
             if (tas_interval && current_time - tas_time >= tas_interval) {
                 uavcan::equipment::air_data::TrueAirspeed msg;
 
-                msg.true_airspeed = tas_out;
+                msg.true_airspeed = std::abs(tas_out);
                 msg.true_airspeed_variance = 1.0f;
 
-                broadcast_manager.encode_trueairspeed(tas_transfer_id++, msg);
+                broadcast_manager.encode_message(tas_transfer_id++, msg);
                 tas_time = current_time;
             } else if (ias_interval &&
                         current_time - ias_time >= ias_interval) {
                 uavcan::equipment::air_data::IndicatedAirspeed msg;
 
-                msg.indicated_airspeed = ias_out;
+                msg.indicated_airspeed = std::abs(ias_out);
                 msg.indicated_airspeed_variance = 1.0f;
 
-                broadcast_manager.encode_indicatedairspeed(ias_transfer_id++,
-                                                           msg);
+                broadcast_manager.encode_message(ias_transfer_id++, msg);
                 ias_time = current_time;
             } else if (current_time - status_time >= status_interval) {
                 uavcan::protocol::NodeStatus msg;
@@ -598,8 +624,7 @@ static void __attribute__((noreturn)) node_run(
                 msg.mode = msg.MODE_OPERATIONAL;
                 msg.sub_mode = 0u;
                 msg.vendor_specific_status_code = 0u;
-                broadcast_manager.encode_nodestatus(status_transfer_id++,
-                                                    msg);
+                broadcast_manager.encode_message(status_transfer_id++, msg);
                 status_time = current_time;
             }
         }
