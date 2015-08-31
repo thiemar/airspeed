@@ -34,74 +34,6 @@ static volatile uint32_t g_uptime;
 static struct bootloader_app_shared_t g_bootloader_app_shared;
 
 
-const float FIR_TAPS[] = {
-    -0.000076,
-    -0.000465,
-    -0.000989,
-    -0.001642,
-    -0.002403,
-    -0.003240,
-    -0.004106,
-    -0.004941,
-    -0.005672,
-    -0.006220,
-    -0.006498,
-    -0.006418,
-    -0.005898,
-    -0.004860,
-    -0.003244,
-    -0.001005,
-     0.001877,
-     0.005397,
-     0.009522,
-     0.014191,
-     0.019313,
-     0.024773,
-     0.030431,
-     0.036132,
-     0.041707,
-     0.046985,
-     0.051795,
-     0.055978,
-     0.059393,
-     0.061922,
-     0.063476,
-     0.064000,
-     /* Everything below is mirrored */
-     0.063476,
-     0.061922,
-     0.059393,
-     0.055978,
-     0.051795,
-     0.046985,
-     0.041707,
-     0.036132,
-     0.030431,
-     0.024773,
-     0.019313,
-     0.014191,
-     0.009522,
-     0.005397,
-     0.001877,
-    -0.001005,
-    -0.003244,
-    -0.004860,
-    -0.005898,
-    -0.006418,
-    -0.006498,
-    -0.006220,
-    -0.005672,
-    -0.004941,
-    -0.004106,
-    -0.003240,
-    -0.002403,
-    -0.001642,
-    -0.000989,
-    -0.000465,
-    -0.000076
-};
-
-
 /* Written to the firmware image in post-processing */
 extern volatile struct bootloader_app_descriptor flash_app_descriptor;
 
@@ -253,13 +185,12 @@ static void __attribute__((noreturn)) node_run(
     uint32_t message_id, current_time, status_time, tas_time, ias_time,
              status_interval, tas_interval, ias_interval, sensor_data;
     uint8_t filter_id, tas_transfer_id, status_transfer_id,
-            ias_transfer_id, message[8], delay_line_idx, broadcast_filter_id,
+            ias_transfer_id, message[8], broadcast_filter_id,
             service_filter_id;
     bool param_valid, wants_bootloader_restart;
     struct param_t param;
-    float value, ias_delay_line[64], tas_delay_line[64], ias_accum, tas_accum,
-          ias_lpf_coeff, tas_lpf_coeff, ias_out, tas_out, wb,
-          offset_pressure_pa;
+    float value, ias_temp, tas_temp, ias_lpf_coeff, tas_lpf_coeff, ias_out,
+          tas_out, wb, offset_pressure_pa;
 
     UAVCANTransferManager broadcast_manager(node_id);
     UAVCANTransferManager service_manager(node_id);
@@ -281,8 +212,6 @@ static void __attribute__((noreturn)) node_run(
 
     wants_bootloader_restart = false;
 
-    delay_line_idx = 0u;
-
     status_interval = 900u;
     tas_interval = (uint32_t)(configuration.get_param_value_by_index(
         PARAM_UAVCAN_TRUEAIRSPEED_INTERVAL) * 1e-3f);
@@ -293,25 +222,21 @@ static void __attribute__((noreturn)) node_run(
     static_temp_k = STANDARD_TEMP_K;
     differential_pressure_pa = 0.0f;
     offset_pressure_pa = 0.0f;
-    tas_out = 0.0f;
-    ias_out = 0.0f;
+    tas_out = ias_out = 0.0f;
 
     if (tas_interval) {
-        wb = 2.0f * (float)M_PI / (tas_interval * 1e-6f) * 0.1f;
-        tas_lpf_coeff = 1.0f - fast_expf(-wb * (1.0f / 250.0f));
+        wb = 2.0f * (float)M_PI / (tas_interval * 1e-3f) * 0.1f;
+        tas_lpf_coeff = 1.0f - fast_expf(-wb * (1.0f / 2000.0f));
     } else {
         tas_lpf_coeff = 1.0f;
     }
 
     if (ias_interval) {
-        wb = 2.0f * (float)M_PI / (ias_interval * 1e-6f) * 0.1f;
-        ias_lpf_coeff = 1.0f - fast_expf(-wb * (1.0f / 250.0f));
+        wb = 2.0f * (float)M_PI / (ias_interval * 1e-3f) * 0.1f;
+        ias_lpf_coeff = 1.0f - fast_expf(-wb * (1.0f / 2000.0f));
     } else {
         ias_lpf_coeff = 1.0f;
     }
-
-    memset(ias_delay_line, 0, sizeof(float) * 64);
-    memset(tas_delay_line, 0, sizeof(float) * 64);
 
     while (true) {
         current_time = g_uptime;
@@ -326,7 +251,9 @@ static void __attribute__((noreturn)) node_run(
                 differential_pressure_pa =
                     pressure_from_count((sensor_data >> 16u) & 0x3FFFu);
 
-                if (current_time < SENSOR_STARTUP_MS * 10) {
+                if (std::isnan(differential_pressure_pa)) {
+                    differential_pressure_pa = 0.0f;
+                } else if (current_time < SENSOR_STARTUP_MS * 10) {
                     offset_pressure_pa +=
                         (differential_pressure_pa - offset_pressure_pa) * 0.01f;
                 } else {
@@ -334,48 +261,20 @@ static void __attribute__((noreturn)) node_run(
 
                     /*
                     Convert dynamic pressure to IAS and TAS based on current
-                    static pressure/temp, then push IAS and TAS onto the delay
-                    lines
+                    static pressure/temp.
                     */
-                    delay_line_idx++;
-                    ias_delay_line[delay_line_idx & 63u] =
+                    ias_temp =
                         airspeed_from_pressure_temp(differential_pressure_pa,
                                                     STANDARD_PRESSURE_PA,
                                                     STANDARD_TEMP_K);
-                    tas_delay_line[delay_line_idx & 63u] =
+                    tas_temp =
                         airspeed_from_pressure_temp(differential_pressure_pa,
                                                     static_pressure_pa,
                                                     static_temp_k);
 
-                    /*
-                    Every 8 samples, run the FIR decimation filter and accumulate
-                    the result into ias_out and tas_out using lpf_coeff to
-                    low-pass.
-                    */
-                    if ((delay_line_idx & 7u) == 0) {
-                        ias_accum = tas_accum = 0.0f;
-
-                        /*
-                        Starting with the sample before last, loop over the
-                        previous 63 samples and apply the FIR coefficients
-                        */
-                        for (i = 0; i < 63u; i++) {
-                            ias_accum +=
-                                ias_delay_line[(delay_line_idx - i) & 63u] *
-                                FIR_TAPS[i];
-                            tas_accum +=
-                                tas_delay_line[(delay_line_idx - i) & 63u] *
-                                FIR_TAPS[i];
-                        }
-
-                        /* Renormalize */
-                        ias_accum /= 0.99443f;
-                        tas_accum /= 0.99443f;
-
-                        /* We now have the accumulated value, so apply the IIR */
-                        ias_out += (ias_accum - ias_out) * ias_lpf_coeff;
-                        tas_out += (tas_accum - tas_out) * tas_lpf_coeff;
-                    }
+                    /* Low-pass both values */
+                    ias_out += (ias_temp - ias_out) * ias_lpf_coeff;
+                    tas_out += (tas_temp - tas_out) * tas_lpf_coeff;
                 }
             }
         }

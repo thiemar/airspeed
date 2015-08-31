@@ -63,16 +63,14 @@ static struct param_t param_config_[NUM_PARAMS] = {
     should be sent. Zero disables publication.
     */
     {PARAM_UAVCAN_TRUEAIRSPEED_INTERVAL, PARAM_TYPE_INT,
-        "uavcan.pubp-uavcan.equipment.air_data.TrueAirspeed",
-        50e3f, 0.0f, 1e6f},
+        "pubp_tas", 50e3f, 0.0f, 1e6f},
 
     /*
     Interval in microseconds at which UAVCAN IndicatedAirspeed messages
     should be sent. Zero disables publication.
     */
     {PARAM_UAVCAN_INDICATEDAIRSPEED_INTERVAL, PARAM_TYPE_INT,
-        "uavcan.pubp-uavcan.equipment.air_data.IndicatedAirspeed",
-        50e3f, 0.0f, 1e6f},
+        "pubp_ias", 50e3f, 0.0f, 1e6f},
 };
 
 
