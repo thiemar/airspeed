@@ -73,8 +73,7 @@ POSSIBILITY OF SUCH DAMAGE.
 Contact: Paul Mineiro <paul@mineiro.com>
 */
 
-inline float __attribute__((optimize("O3")))
-fast_pow2f(float p) {
+inline float fast_pow2f(float p) {
     float offset = (p < 0) ? 1.0f : 0.0f;
     float clipp = (p < -126) ? -126.0f : p;
     int32_t w = (int32_t)clipp;
@@ -85,14 +84,12 @@ fast_pow2f(float p) {
 }
 
 
-inline float __attribute__((optimize("O3")))
-fast_expf(float x) {
+inline float fast_expf(float x) {
     return fast_pow2f(x * 1.442695040f);
 }
 
 
-inline float __attribute__((optimize("O3")))
-fast_log2f(float x) {
+inline float fast_log2f(float x) {
     union { float f; uint32_t i; } vx = { x };
     union { uint32_t i; float f; } mx = { (vx.i & 0x007FFFFF) | 0x3f000000 };
     float y = vx.i;
@@ -104,59 +101,16 @@ fast_log2f(float x) {
 }
 
 
-inline float __attribute__((optimize("O3")))
-fast_powf(float x, float p){
+inline float fast_powf(float x, float p){
   return fast_pow2f(p * fast_log2f(x));
 }
 
 
-inline float __attribute__((optimize("O3")))
-fast_sin(float x) {
-    const float B = (float)(4.0 / M_PI);
-    const float C = (float)(-4.0 / (M_PI * M_PI));
-    const float P = 0.225f; /* or 0.218 to minimize relative error */
-
-    float y;
-    y = B * x + C * x * std::abs(x);
-    return P * (y * std::abs(y) - y) + y;
+inline static float __attribute__((always_inline)) __VSQRTF(float x) {
+    float result;
+    asm ("vsqrt.f32 %0, %1" : "=w" (result) : "w" (x) );
+    return result;
 }
-
-
-#ifndef STM32F30X
-    inline static int32_t __SSAT(int32_t x, uint32_t y) {
-        int32_t maxv;
-
-        maxv = 1 << (y - 1);
-
-        if (x > maxv - 1) {
-            x = maxv - 1;
-        } else if (x < -maxv) {
-            x = -maxv;
-        }
-        return x;
-    }
-
-    inline static uint32_t __USAT(uint32_t x, uint32_t y) {
-        uint32_t maxv;
-
-        maxv = 1u << y;
-
-        if (x > maxv - 1u) {
-            x = maxv - 1u;
-        }
-        return x;
-    }
-
-    inline static float __VSQRTF(float x) {
-        return sqrtf(x);
-    }
-#else
-    __attribute__((always_inline)) inline static float __VSQRTF(float x) {
-        float result;
-        asm ("vsqrt.f32 %0, %1" : "=w" (result) : "w" (x) );
-        return result;
-    }
-#endif
 
 #define G_ACCEL_M_PER_S2 9.80665f /* m/s^2 */
 #define STANDARD_PRESSURE_PA 101325.0f /* Pa at sea level */
@@ -174,27 +128,25 @@ lapse rate varies with altitude.
 Nominally, both `pref` and `p` are Pa, but since it's a ratio it doesn't
 really matter.
 */
-inline float __attribute__((optimize("O3")))
-altitude_diff_from_pressure_diff(
+inline float altitude_diff_from_pressure_diff(
     float pressure_ref_pa,
     float pressure_pa,
     float temp_k
 ) {
-    return (fast_powf(pressure_ref_pa / pressure_pa, 1.0f / 5.257f) - 1.0f) *
-           temp_k * (1.0f / 0.0065f);
+    return (fast_powf(pressure_ref_pa / pressure_pa, float(1.0 / 5.257)) - 1.0f) *
+           temp_k * float(1.0 / 0.0065);
 }
 
 /*
 Calculate the density of air at a given pressure (`p`, in Pa) and temperature
 (`temp`, in K).
 */
-inline float __attribute__((optimize("O3")))
-density_from_pressure_temp(
+inline float density_from_pressure_temp(
     float pressure_pa,
     float temp_k
 ) {
     /* 287.058 is the gas constant for dry air, in J kg^-1 K^-1 */
-    return pressure_pa / (287.058f * temp_k);
+    return float(1.0 / 287.058f) * pressure_pa / temp_k;
 }
 
 /*
@@ -205,17 +157,18 @@ reading.
 is the dynamic/impact/differential pressure in Pa, and `temp` is the static
 temperature in K.
 */
-inline float __attribute__((optimize("O3")))
-airspeed_from_pressure_temp(
+inline float __attribute__((always_inline)) airspeed_from_pressure_temp(
     float dynamic_pressure_pa,
     float static_pressure_pa,
     float temp_k
 ) {
-    float pressure_ratio;
+    float pressure_ratio, airspeed;
     pressure_ratio = std::abs(dynamic_pressure_pa / static_pressure_pa);
 
-    return STANDARD_C_M_PER_S *
-           __VSQRTF((5.0f / STANDARD_TEMP_K) * temp_k *
-                    (fast_powf(pressure_ratio + 1.0f, 2.0f / 7.0f) - 1.0f)) *
-           (dynamic_pressure_pa > 0.0f ? 1.0f : -1.0f);
+    airspeed =
+        STANDARD_C_M_PER_S *
+        __VSQRTF(float(5.0 / STANDARD_TEMP_K) * temp_k *
+                 (fast_powf(pressure_ratio + 1.0f, float(2.0 / 7.0)) - 1.0f));
+
+    return dynamic_pressure_pa > 0.0f ? airspeed : -airspeed;
 }

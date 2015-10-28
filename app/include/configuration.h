@@ -98,5 +98,6 @@ public:
         }
     }
 
+    void reset_params(void);
     void write_params(void);
 };

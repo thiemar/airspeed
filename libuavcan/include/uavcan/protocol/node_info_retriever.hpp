@@ -88,7 +88,7 @@ public:
  *
  * Events from this class can be routed to many listeners, @ref INodeInfoListener.
  */
-class UAVCAN_EXPORT NodeInfoRetriever : NodeStatusMonitor
+class UAVCAN_EXPORT NodeInfoRetriever : public NodeStatusMonitor
                                       , TimerBase
 {
 public:
@@ -156,7 +156,6 @@ private:
         }
     };
 
-    enum { NumStaticCalls = 2 };
     enum { DefaultNumRequestAttempts = 16 };
     enum { DefaultTimerIntervalMSec = 40 };  ///< Read explanation in the class documentation
 
@@ -165,9 +164,9 @@ private:
      */
     Entry entries_[NodeID::Max];  // [1, NodeID::Max]
 
-    Multiset<INodeInfoListener*, 2> listeners_;
+    Multiset<INodeInfoListener*> listeners_;
 
-    ServiceClient<protocol::GetNodeInfo, GetNodeInfoResponseCallback, NumStaticCalls> get_node_info_client_;
+    ServiceClient<protocol::GetNodeInfo, GetNodeInfoResponseCallback> get_node_info_client_;
 
     MonotonicDuration request_interval_;
 

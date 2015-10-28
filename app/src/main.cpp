@@ -52,6 +52,7 @@ static void node_run(uint8_t node_id, Configuration& configuration);
 extern "C" void main(void) {
     up_cxxinitialize();
     board_initialize();
+    up_timer_initialize();
     irqenable();
 
     Configuration configuration;
@@ -144,7 +145,7 @@ static uint32_t spi_read(void) {
     stm32_gpiowrite(GPIO_NSS, 0u);
 
     /* Wait a bit */
-    for (volatile int x = 0; x < 200; x++);
+    for (volatile uint32_t x = 128u; x != 0; x--);
 
     /* Write 16 bits to the data register */
     putreg16(0, STM32_SPI3_DR);
@@ -161,19 +162,23 @@ static uint32_t spi_read(void) {
     putreg16(getreg16(STM32_SPI3_CR1) & ~SPI_CR1_SPE, STM32_SPI3_CR1);
     stm32_gpiowrite(GPIO_NSS, 1u);
 
-    /* Swap bytes */
-    return result << 16u;
+    return result;
 }
 
 
 static float pressure_from_count(uint16_t count) {
     /* Params for HSCMRRN100MDSA3 */
-    const float COUNT_MAX = 16383.0f;
-    const float PRESSURE_MIN = -100.0f, PRESSURE_MAX = 100.0f;
-    const float PA_PER_MBAR = 100.0f;
+    const double COUNT_MAX = 16383.0;
+    const double PRESSURE_MIN = -100.0, PRESSURE_MAX = 100.0;
+    const double PA_PER_MBAR = 100.0;
 
-    return (((float)count / COUNT_MAX - 0.1f) *
-            (PRESSURE_MAX - PRESSURE_MIN) / 0.8f + PRESSURE_MIN) * PA_PER_MBAR;
+    float temp;
+
+    temp = float(count) * float(1.0 / COUNT_MAX) - 0.1f;
+    temp = temp * float((PRESSURE_MAX - PRESSURE_MIN) / 0.8);
+    temp = (temp + float(PRESSURE_MIN)) * float(PA_PER_MBAR);
+
+    return temp;
 }
 
 
@@ -181,7 +186,7 @@ static void __attribute__((noreturn)) node_run(
     uint8_t node_id,
     Configuration& configuration
 ) {
-    size_t length, i;
+    size_t length;
     uint32_t message_id, current_time, status_time, tas_time, ias_time,
              status_interval, tas_interval, ias_interval, sensor_data;
     uint8_t filter_id, tas_transfer_id, status_transfer_id,
@@ -190,7 +195,7 @@ static void __attribute__((noreturn)) node_run(
     bool param_valid, wants_bootloader_restart;
     struct param_t param;
     float value, ias_temp, tas_temp, ias_lpf_coeff, tas_lpf_coeff, ias_out,
-          tas_out, wb, offset_pressure_pa;
+          tas_out, rc, offset_pressure_pa, t_s;
 
     UAVCANTransferManager broadcast_manager(node_id);
     UAVCANTransferManager service_manager(node_id);
@@ -213,10 +218,6 @@ static void __attribute__((noreturn)) node_run(
     wants_bootloader_restart = false;
 
     status_interval = 900u;
-    tas_interval = (uint32_t)(configuration.get_param_value_by_index(
-        PARAM_UAVCAN_TRUEAIRSPEED_INTERVAL) * 1e-3f);
-    ias_interval = (uint32_t)(configuration.get_param_value_by_index(
-        PARAM_UAVCAN_INDICATEDAIRSPEED_INTERVAL) * 1e-3f);
 
     static_pressure_pa = STANDARD_PRESSURE_PA;
     static_temp_k = STANDARD_TEMP_K;
@@ -224,22 +225,29 @@ static void __attribute__((noreturn)) node_run(
     offset_pressure_pa = 0.0f;
     tas_out = ias_out = 0.0f;
 
-    if (tas_interval) {
-        wb = 2.0f * (float)M_PI / (tas_interval * 1e-3f) * 0.1f;
-        tas_lpf_coeff = 1.0f - fast_expf(-wb * (1.0f / 2000.0f));
-    } else {
-        tas_lpf_coeff = 1.0f;
-    }
-
-    if (ias_interval) {
-        wb = 2.0f * (float)M_PI / (ias_interval * 1e-3f) * 0.1f;
-        ias_lpf_coeff = 1.0f - fast_expf(-wb * (1.0f / 2000.0f));
-    } else {
-        ias_lpf_coeff = 1.0f;
-    }
+    t_s = 0.5e-3f;
 
     while (true) {
         current_time = g_uptime;
+
+        /* Allow intervals to be changed without restarting */
+        tas_interval = uint32_t(configuration.get_param_value_by_index(
+            PARAM_UAVCAN_TRUEAIRSPEED_INTERVAL) * 1e-3f);
+        if (tas_interval == 0.0f) {
+            tas_lpf_coeff = 1.0f;
+        } else {
+            rc = float(tas_interval) / float(2000.0 * M_PI);
+            tas_lpf_coeff = t_s / (t_s + 4.0f * rc);
+        }
+
+        ias_interval = uint32_t(configuration.get_param_value_by_index(
+            PARAM_UAVCAN_INDICATEDAIRSPEED_INTERVAL) * 1e-3f);
+        if (ias_interval == 0.0f) {
+            ias_lpf_coeff = 1.0f;
+        } else {
+            rc = float(ias_interval) / float(2000.0 * M_PI);
+            tas_lpf_coeff = t_s / (t_s + 4.0f * rc);
+        }
 
         /*
         Read pressure (and temperature?); skip if the status bits are set,
@@ -247,9 +255,9 @@ static void __attribute__((noreturn)) node_run(
         */
         if (current_time > SENSOR_STARTUP_MS) {
             sensor_data = spi_read();
-            if (!(sensor_data & 0xC0000000u)) {
+            if (!(sensor_data & 0xC000u)) {
                 differential_pressure_pa =
-                    pressure_from_count((sensor_data >> 16u) & 0x3FFFu);
+                    pressure_from_count(sensor_data & 0x3FFFu);
 
                 if (std::isnan(differential_pressure_pa)) {
                     differential_pressure_pa = 0.0f;
@@ -377,11 +385,7 @@ static void __attribute__((noreturn)) node_run(
                     /*
                     Set all parameters to default values, then erase the flash
                     */
-                    for (i = 0u; i < NUM_PARAMS; i++) {
-                        configuration.get_param_by_index(param, (uint8_t)i);
-                        configuration.set_param_value_by_index(
-                            (uint8_t)i, param.default_value);
-                    }
+                    configuration.reset_params();
                     configuration.write_params();
                     xo_resp.ok = true;
                 }
@@ -539,6 +543,7 @@ static void __attribute__((noreturn)) node_run(
         been sent.
         */
         if (broadcast_manager.is_tx_done() && service_manager.is_tx_done() &&
+                can_is_ready(0u) && can_is_ready(1u) &&
                 wants_bootloader_restart) {
             up_systemreset();
         }

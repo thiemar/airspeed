@@ -91,45 +91,27 @@ Configuration::Configuration(void) {
             }
         }
     } else {
-        for (i = 0; i < NUM_PARAMS; i++) {
-            params_[i] = param_config_[i].default_value;
-        }
+        reset_params();
     }
-}
-
-
-static size_t _get_param_name_len(const char* name) {
-    size_t i;
-
-    for (i = 0; i < PARAM_NAME_MAX_LEN; i++) {
-        if (name[i] == 0) {
-            return i + 1u;
-        }
-    }
-
-    return 0;
 }
 
 
 static size_t _find_param_index_by_name(
     const char* name,
-    struct param_t params[],
-    size_t num_params
+    const struct param_t params[]
 ) {
-    size_t i, name_len;
+    size_t i, j;
 
-    name_len = _get_param_name_len(name);
-    if (name_len <= 1) {
-        return num_params;
-    }
-
-    for (i = 0; i < num_params; i++) {
-        if (memcmp(params[i].name, name, name_len) == 0) {
-            return i;
+    for (i = 0; i < NUM_PARAMS; i++) {
+        for (j = 0; j < PARAM_NAME_MAX_LEN &&
+                    params[i].name[j] == name[j]; j++) {
+            if (name[j] == 0) {
+                return i;
+            }
         }
     }
 
-    return num_params;
+    return NUM_PARAMS;
 }
 
 
@@ -139,7 +121,7 @@ bool Configuration::get_param_by_name(
 ) {
     size_t idx;
 
-    idx = _find_param_index_by_name(name, param_config_, NUM_PARAMS);
+    idx = _find_param_index_by_name(name, param_config_);
     return get_param_by_index(out_param, (uint8_t)idx);
 }
 
@@ -152,7 +134,7 @@ bool Configuration::get_param_by_index(
         return false;
     }
 
-    memcpy(&out_param, &param_config_[index], sizeof(struct param_t));
+    out_param = param_config_[index];
     return true;
 }
 
@@ -160,7 +142,7 @@ bool Configuration::get_param_by_index(
 bool Configuration::set_param_value_by_name(const char* name, float value) {
     size_t idx;
 
-    idx = _find_param_index_by_name(name, param_config_, NUM_PARAMS);
+    idx = _find_param_index_by_name(name, param_config_);
     return set_param_value_by_index((uint8_t)idx, value);
 }
 
@@ -176,6 +158,14 @@ bool Configuration::set_param_value_by_index(uint8_t index, float value) {
         return true;
     } else {
         return false;
+    }
+}
+
+
+void Configuration::reset_params(void) {
+    size_t i;
+    for (i = 0; i < NUM_PARAMS; i++) {
+        params_[i] = param_config_[i].default_value;
     }
 }
 

@@ -122,60 +122,16 @@ void __start(void) __attribute__ ((no_instrument_function));
 
 static inline void stm32_fpuconfig(void)
 {
-  uint32_t regval;
-
-  /* Set CONTROL.FPCA so that we always get the extended context frame
-   * with the volatile FP registers stacked above the basic context.
-   */
-
-  regval = getcontrol();
-  regval |= (1 << 2);
-  setcontrol(regval);
-
-  /* Ensure that FPCCR.LSPEN is disabled, so that we don't have to contend
-   * with the lazy FP context save behaviour.  Clear FPCCR.ASPEN since we
-   * are going to turn on CONTROL.FPCA for all contexts.
-   */
-
-  regval = getreg32(NVIC_FPCCR);
-  regval &= ~((1 << 31) | (1 << 30));
-  putreg32(regval, NVIC_FPCCR);
-
-  /* Enable full access to CP10 and CP11 */
-
-  regval = getreg32(NVIC_CPACR);
-  regval |= ((3 << (2*10)) | (3 << (2*11)));
-  putreg32(regval, NVIC_CPACR);
+    /* Enable full access to CP10 and CP11 */
+    putreg32(getreg32(NVIC_CPACR) | (0xF << 20u), NVIC_CPACR);
 }
 
 #else
 
 static inline void stm32_fpuconfig(void)
 {
-  uint32_t regval;
-
-  /* Clear CONTROL.FPCA so that we do not get the extended context frame
-   * with the volatile FP registers stacked in the saved context.
-   */
-
-  regval = getcontrol();
-  regval &= ~(1 << 2);
-  setcontrol(regval);
-
-  /* Ensure that FPCCR.LSPEN is disabled, so that we don't have to contend
-   * with the lazy FP context save behaviour.  Clear FPCCR.ASPEN since we
-   * are going to keep CONTROL.FPCA off for all contexts.
-   */
-
-  regval = getreg32(NVIC_FPCCR);
-  regval &= ~((1 << 31) | (1 << 30));
-  putreg32(regval, NVIC_FPCCR);
-
-  /* Enable full access to CP10 and CP11 */
-
-  regval = getreg32(NVIC_CPACR);
-  regval |= ((3 << (2*10)) | (3 << (2*11)));
-  putreg32(regval, NVIC_CPACR);
+    /* Enable full access to CP10 and CP11 */
+    putreg32(getreg32(NVIC_CPACR) | (0xF << 20u), NVIC_CPACR);
 }
 
 #endif
@@ -252,7 +208,6 @@ void __start(void)
   stm32_clockconfig();
   stm32_fpuconfig();
   stm32_gpioinit();
-  showprogress('A');
 
   /* Clear .bss.  We'll do this inline (vs. calling memset) just to be
    * certain that there are no issues with the state of global variables.
@@ -262,8 +217,6 @@ void __start(void)
     {
       *dest++ = 0;
     }
-
-  showprogress('B');
 
   /* Move the initialized data section from his temporary holding spot in
    * FLASH into the correct place in SRAM.  The correct place in SRAM is
@@ -275,18 +228,6 @@ void __start(void)
     {
       *dest++ = *src++;
     }
-
-  showprogress('C');
-
-  /* Perform timer initialization */
-
-  up_timer_initialize();
-  showprogress('D');
-
-  /* Then start NuttX */
-
-  showprogress('\r');
-  showprogress('\n');
 
   main(0, NULL);
 
